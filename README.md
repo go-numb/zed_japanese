@@ -32,6 +32,7 @@ Both paths still need:
 
 - Rust toolchain for building Zed
 - Platform dependencies required by Zed
+- Visual Studio or Visual Studio Build Tools with the C++ toolchain on Windows
 
 Zed's official build docs:
 
@@ -70,6 +71,11 @@ Windows without Python:
 The PowerShell wrapper detects official Zed on the host, runs the Python
 sync/patch steps inside Docker, builds with host `cargo`, then overlays the
 official `Zed.exe`.
+
+The Windows build still requires Visual Studio or Visual Studio Build Tools with
+the C++ toolchain. VS Code is a different product and is not sufficient. The
+wrapper tries to load `VsDevCmd.bat` automatically when Build Tools are
+installed; if that fails, run it from "Developer PowerShell for VS".
 
 If official Zed is not installed yet, install it first for the normal overlay
 flow. To only test source checkout and patching on a machine without Zed,

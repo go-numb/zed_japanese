@@ -128,6 +128,73 @@ function Invoke-ZedJapaneseDocker {
     }
 }
 
+function Test-CommandAvailable {
+    param([string]$Name)
+    return $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Import-VsDevEnvironment {
+    if (Test-CommandAvailable "cl.exe") {
+        return
+    }
+
+    $vswhereCandidates = @(
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe",
+        "$env:ProgramFiles\Microsoft Visual Studio\Installer\vswhere.exe"
+    )
+    $vswhere = $vswhereCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (!$vswhere) {
+        return
+    }
+
+    $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+    if (!$installationPath) {
+        return
+    }
+
+    $devCmd = Join-Path $installationPath "Common7\Tools\VsDevCmd.bat"
+    if (!(Test-Path $devCmd)) {
+        return
+    }
+
+    $envLines = cmd /s /c "`"$devCmd`" -arch=x64 -host_arch=x64 >nul && set"
+    foreach ($line in $envLines) {
+        if ($line -match "^([^=]+)=(.*)$") {
+            [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], "Process")
+        }
+    }
+}
+
+function Assert-HostBuildDependencies {
+    Import-VsDevEnvironment
+
+    $missing = @()
+    if (!(Test-CommandAvailable "cargo.exe")) {
+        $missing += "Rust/cargo"
+    }
+    if (!(Test-CommandAvailable "cl.exe")) {
+        $missing += "MSVC C++ build tools"
+    }
+    if (!(Test-CommandAvailable "cmake.exe")) {
+        $missing += "CMake"
+    }
+
+    if ($missing.Count -gt 0) {
+        throw @"
+Missing Windows build dependencies: $($missing -join ", ")
+
+Install Visual Studio Build Tools or Visual Studio with:
+- Desktop development with C++
+- MSVC x64/x86 build tools
+- MSVC Spectre-mitigated libs
+- Windows 10/11 SDK
+- CMake
+
+VS Code is not sufficient. After installing, rerun this command from PowerShell.
+"@
+    }
+}
+
 function Invoke-HostBuild {
     param([string]$RepoRoot)
 
@@ -135,6 +202,8 @@ function Invoke-HostBuild {
     if (!(Test-Path $sourceDir)) {
         throw "Zed source is missing. Run prepare first."
     }
+
+    Assert-HostBuildDependencies
 
     Push-Location $sourceDir
     try {

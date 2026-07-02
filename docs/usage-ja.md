@@ -36,6 +36,9 @@ Windows に Python がない場合は Docker + PowerShell wrapper を使う。
 Windows 側の `cargo build --release` で行い、最後に公式 `Zed.exe` へ overlay
 する。
 
+`cargo build` には Visual Studio または Visual Studio Build Tools の C++
+toolchain が必要。VS Code は別製品なので代替にならない。
+
 内部では次の順に動く。
 
 1. `zed --version` から公式 Zed の version と commit を取得する。
@@ -75,6 +78,20 @@ WSL から Windows 版 Zed を検出することはできる。
 Windows に Python がなく Docker がある場合は、PowerShell から
 `scripts\zed_japanese.ps1` を実行する。この場合も Rust と Windows の Zed
 ビルド依存関係はホスト側に必要。
+
+最低限必要なもの:
+
+- Rust / cargo
+- Visual Studio Build Tools または Visual Studio
+- `Desktop development with C++`
+- MSVC x64/x86 build tools
+- MSVC Spectre-mitigated libs
+- Windows 10/11 SDK
+- CMake
+
+Build Tools を入れている場合、通常の PowerShell では MSVC 環境変数が未設定の
+ことがある。wrapper は `VsDevCmd.bat` を探して自動読み込みを試すが、失敗する
+場合は「Developer PowerShell for VS」から実行する。
 
 ## Zed 未インストール環境
 
