@@ -97,6 +97,12 @@ Required Visual Studio components:
 - Windows 10/11 SDK
 - CMake
 
+If only CMake is missing:
+
+```powershell
+winget install -e --id Kitware.CMake
+```
+
 If official Zed is not installed yet, install it first for the normal overlay
 flow. To only test source checkout and patching on a machine without Zed,
 provide the version and commit explicitly:

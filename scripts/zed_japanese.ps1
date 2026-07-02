@@ -165,8 +165,34 @@ function Import-VsDevEnvironment {
     }
 }
 
+function Import-VsBundledCMake {
+    if (Test-CommandAvailable "cmake.exe") {
+        return
+    }
+
+    $vswhereCandidates = @(
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe",
+        "$env:ProgramFiles\Microsoft Visual Studio\Installer\vswhere.exe"
+    )
+    $vswhere = $vswhereCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (!$vswhere) {
+        return
+    }
+
+    $installationPath = & $vswhere -latest -products * -property installationPath
+    if (!$installationPath) {
+        return
+    }
+
+    $cmakeBin = Join-Path $installationPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+    if (Test-Path (Join-Path $cmakeBin "cmake.exe")) {
+        $env:PATH = "$cmakeBin;$env:PATH"
+    }
+}
+
 function Assert-HostBuildDependencies {
     Import-VsDevEnvironment
+    Import-VsBundledCMake
 
     $missing = @()
     if (!(Test-CommandAvailable "cargo.exe")) {
@@ -189,6 +215,9 @@ Install Visual Studio Build Tools or Visual Studio with:
 - MSVC Spectre-mitigated libs
 - Windows 10/11 SDK
 - CMake
+
+You can install standalone CMake with:
+  winget install -e --id Kitware.CMake
 
 VS Code is not sufficient. After installing, rerun this command from PowerShell.
 "@
