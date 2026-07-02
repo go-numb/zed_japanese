@@ -343,6 +343,25 @@ Get-ChildItem .\.cache\zed-upstream -Force
 
 10 分以上まったく変化がなければ `Ctrl+C` で止めて再実行する。
 
+### `! [rejected] nightly -> nightly (would clobber existing tag)`
+
+Zed upstream の tag がローカル cache の tag と衝突している。最新版では
+`git fetch --tags` を使わないため発生しにくい。
+
+対処:
+
+```powershell
+git pull
+powershell -ExecutionPolicy Bypass -File .\scripts\zed_japanese.ps1 -Command update
+```
+
+それでも直らない場合は、Zed source cache を消して取り直す。
+
+```powershell
+Remove-Item -Recurse -Force .\.cache\zed-upstream
+powershell -ExecutionPolicy Bypass -File .\scripts\zed_japanese.ps1 -Command update
+```
+
 ### `cargo build --release` が長い
 
 初回 build はかなり長い。`Compiling ...` が流れていれば正常。

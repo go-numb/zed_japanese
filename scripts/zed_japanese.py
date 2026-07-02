@@ -162,7 +162,15 @@ def ensure_source(commit: str) -> None:
     if not ZED_SOURCE_DIR.exists():
         run(["git", "clone", UPSTREAM_URL, str(ZED_SOURCE_DIR)])
     else:
-        run(["git", "fetch", "--tags", "origin"], cwd=ZED_SOURCE_DIR)
+        run(["git", "fetch", "origin"], cwd=ZED_SOURCE_DIR)
+
+    has_commit = run(
+        ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+        cwd=ZED_SOURCE_DIR,
+        check=False,
+    )
+    if has_commit.returncode != 0:
+        run(["git", "fetch", "origin", commit], cwd=ZED_SOURCE_DIR)
 
     run(["git", "checkout", "--detach", commit], cwd=ZED_SOURCE_DIR)
     run(["git", "clean", "-fd"], cwd=ZED_SOURCE_DIR)

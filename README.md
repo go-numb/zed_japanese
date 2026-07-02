@@ -116,6 +116,10 @@ If the build fails with `No spectre-mitigated libs were found`, add
 `MSVC v143 - VS 2022 C++ x64/x86 Spectre-mitigated libs` from Visual Studio
 Installer.
 
+If upstream fetch fails with `nightly ... would clobber existing tag`, update
+this repository with `git pull`. Newer versions avoid fetching all upstream
+tags; deleting `.cache\zed-upstream` is also safe when the cache is wedged.
+
 If official Zed is not installed yet, install it first for the normal overlay
 flow. To only test source checkout and patching on a machine without Zed,
 provide the version and commit explicitly:
