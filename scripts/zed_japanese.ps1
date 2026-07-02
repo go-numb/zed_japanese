@@ -82,12 +82,24 @@ function Get-ZedBuild {
 function Ensure-DockerImage {
     param([string]$RepoRoot)
 
-    docker image inspect $Image *> $null
-    if ($LASTEXITCODE -eq 0) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        docker image inspect $Image 1>$null 2>$null
+        $imageExists = $LASTEXITCODE -eq 0
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($imageExists) {
         return
     }
 
     docker build -f (Join-Path $RepoRoot "docker\tooling.Dockerfile") -t $Image $RepoRoot
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to build Docker image: $Image"
+    }
 }
 
 function Invoke-ZedJapaneseDocker {
