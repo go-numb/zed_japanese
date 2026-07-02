@@ -304,13 +304,16 @@ function Invoke-HostBuild {
     Assert-HostBuildDependencies
 
     Push-Location $sourceDir
+    $previousCargoIncremental = $env:CARGO_INCREMENTAL
     try {
-        cargo build --release
+        $env:CARGO_INCREMENTAL = "1"
+        cargo build -p zed --release
         if ($LASTEXITCODE -ne 0) {
             throw "cargo build --release failed"
         }
     }
     finally {
+        $env:CARGO_INCREMENTAL = $previousCargoIncremental
         Pop-Location
     }
 }

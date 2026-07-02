@@ -120,6 +120,10 @@ If upstream fetch fails with `nightly ... would clobber existing tag`, update
 this repository with `git pull`. Newer versions avoid fetching all upstream
 tags; deleting `.cache\zed-upstream` is also safe when the cache is wedged.
 
+For Japanese-only updates, keep `.cache\zed-upstream\target`. The wrapper skips
+upstream fetch when the installed Zed commit is already cached, builds only the
+`zed` package, and enables `CARGO_INCREMENTAL=1` for release builds.
+
 If official Zed is not installed yet, install it first for the normal overlay
 flow. To only test source checkout and patching on a machine without Zed,
 provide the version and commit explicitly:

@@ -161,8 +161,6 @@ def ensure_source(commit: str) -> None:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     if not ZED_SOURCE_DIR.exists():
         run(["git", "clone", UPSTREAM_URL, str(ZED_SOURCE_DIR)])
-    else:
-        run(["git", "fetch", "origin"], cwd=ZED_SOURCE_DIR)
 
     has_commit = run(
         ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
@@ -311,7 +309,7 @@ def cmd_prepare(args: argparse.Namespace) -> None:
 def cmd_build(args: argparse.Namespace) -> None:
     if not ZED_SOURCE_DIR.exists():
         raise CommandError("Zed source is missing. Run `prepare` first.")
-    cargo_args = ["cargo", "build"]
+    cargo_args = ["cargo", "build", "-p", "zed"]
     if args.release:
         cargo_args.append("--release")
     run(cargo_args, cwd=ZED_SOURCE_DIR)

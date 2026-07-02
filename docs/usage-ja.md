@@ -159,6 +159,25 @@ powershell -ExecutionPolicy Bypass -File .\scripts\zed_japanese.ps1 -Command upd
 
 公式 update によって日本語化 `Zed.exe` が上書きされた場合も、この手順で再適用する。
 
+翻訳辞書だけ更新された後も同じコマンドでよい。
+
+```powershell
+cd path\to\zed_japanese
+git pull
+powershell -ExecutionPolicy Bypass -File .\scripts\zed_japanese.ps1 -Command update
+```
+
+同じ Zed commit が `.cache\zed-upstream` にある場合、最新版 wrapper は upstream
+fetch を省略する。build も `cargo build -p zed --release` に絞り、
+`CARGO_INCREMENTAL=1` を有効にする。
+
+注意:
+
+- `.cache\zed-upstream\target` を消すと次回 build が重くなる。
+- `cargo clean` は基本的に実行しない。
+- 翻訳を build-time で埋め込む方式なので、翻訳文字列が変わったファイルの再ビルドは必要。
+- 完全に build 不要にするには、Zed 本体を外部翻訳ファイルを読む構造へ変える必要がある。
+
 ## Zed 未インストールで checkout/patch だけ試す
 
 公式 Zed なしでは overlay install はできない。source checkout と patch の検証だけなら
@@ -365,6 +384,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\zed_japanese.ps1 -Command upd
 ### `cargo build --release` が長い
 
 初回 build はかなり長い。`Compiling ...` が流れていれば正常。
+
+2 回目以降や翻訳辞書だけの更新では、`.cache\zed-upstream\target` が残っていれば
+初回より短くなる。最新版 wrapper は release build でも incremental を有効にする。
 
 完了すると、通常は次のような表示に進む。
 
