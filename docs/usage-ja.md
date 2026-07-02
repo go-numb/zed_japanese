@@ -62,6 +62,9 @@ SDK / CMake 関連コンポーネントを入れる。
 
 VS Code は別製品なので、Zed の Windows build には不足。
 
+`kernel32.lib` がないと言われる場合は Windows SDK libraries が入っていない。
+Visual Studio Installer で Windows 10/11 SDK を追加する。
+
 CMake が不足している場合は standalone CMake を入れるのが早い。
 
 ```powershell
@@ -218,6 +221,27 @@ Test-Path "C:\Program Files\CMake\bin\cmake.exe"
 
 インストール後、通常 PowerShell でうまくいかない場合は
 `Developer PowerShell for VS 2022` から同じコマンドを実行する。
+
+### `LINK : fatal error LNK1181: cannot open input file 'kernel32.lib'`
+
+MSVC linker は見つかっているが、Windows SDK の library path が不足している。
+
+確認:
+
+```powershell
+where link
+echo $env:LIB
+Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Lib" -Recurse -Filter kernel32.lib -ErrorAction SilentlyContinue | Select-Object -First 5
+```
+
+対応:
+
+1. Visual Studio Installer を開く。
+2. Visual Studio / Build Tools の `Modify` を選ぶ。
+3. `Individual components` で Windows 10/11 SDK を追加する。
+4. PowerShell を開き直して再実行する。
+
+通常 PowerShell でだめな場合は `Developer PowerShell for VS 2022` から実行する。
 
 ### `Cloning into '/work/.cache/zed-upstream'...` で長い
 

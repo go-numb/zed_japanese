@@ -104,6 +104,10 @@ winget install -e --id Kitware.CMake
 Get-Command cmake
 ```
 
+If linking fails with `cannot open input file 'kernel32.lib'`, install the
+Windows 10/11 SDK from Visual Studio Installer and rerun from a new PowerShell
+or "Developer PowerShell for VS".
+
 If official Zed is not installed yet, install it first for the normal overlay
 flow. To only test source checkout and patching on a machine without Zed,
 provide the version and commit explicitly:

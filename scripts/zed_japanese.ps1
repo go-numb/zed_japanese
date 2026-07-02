@@ -216,6 +216,9 @@ function Assert-HostBuildDependencies {
     if (!(Test-CommandAvailable "cmake.exe")) {
         $missing += "CMake"
     }
+    if (!(Test-LibAvailable "kernel32.lib")) {
+        $missing += "Windows SDK libraries (kernel32.lib)"
+    }
 
     if ($missing.Count -gt 0) {
         throw @"
@@ -231,6 +234,9 @@ Install Visual Studio Build Tools or Visual Studio with:
 You can install standalone CMake with:
   winget install -e --id Kitware.CMake
 
+If kernel32.lib is missing, open Visual Studio Installer and add:
+  Windows 10/11 SDK
+
 If CMake is already installed, open a new PowerShell or check:
   Get-Command cmake
   Test-Path "C:\Program Files\CMake\bin\cmake.exe"
@@ -238,6 +244,22 @@ If CMake is already installed, open a new PowerShell or check:
 VS Code is not sufficient. After installing, rerun this command from PowerShell.
 "@
     }
+}
+
+function Test-LibAvailable {
+    param([string]$Name)
+
+    if (!$env:LIB) {
+        return $false
+    }
+
+    foreach ($path in $env:LIB -split ";") {
+        if ($path -and (Test-Path (Join-Path $path $Name))) {
+            return $true
+        }
+    }
+
+    return $false
 }
 
 function Invoke-HostBuild {
