@@ -65,6 +65,10 @@ VS Code は別製品なので、Zed の Windows build には不足。
 `kernel32.lib` がないと言われる場合は Windows SDK libraries が入っていない。
 Visual Studio Installer で Windows 10/11 SDK を追加する。
 
+`No spectre-mitigated libs were found` と言われる場合は Spectre-mitigated libs が
+入っていない。Visual Studio Installer の Individual components で
+`MSVC v143 - VS 2022 C++ x64/x86 Spectre-mitigated libs` を追加する。
+
 CMake が不足している場合は standalone CMake を入れるのが早い。
 
 ```powershell
@@ -293,6 +297,27 @@ Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Lib" -Recurse -Filter kern
 4. PowerShell を開き直して再実行する。
 
 通常 PowerShell でだめな場合は `Developer PowerShell for VS 2022` から実行する。
+
+### `No spectre-mitigated libs were found`
+
+MSVC の Spectre-mitigated libraries が不足している。
+
+対応:
+
+1. Visual Studio Installer を開く。
+2. Visual Studio / Build Tools の `Modify` を選ぶ。
+3. `Individual components` を開く。
+4. `Spectre` で検索する。
+5. `MSVC v143 - VS 2022 C++ x64/x86 Spectre-mitigated libs` を追加する。
+6. PowerShell を開き直して再実行する。
+
+確認例:
+
+```powershell
+Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022" -Recurse -Filter libcpmt.lib -ErrorAction SilentlyContinue |
+  Where-Object { $_.FullName -match "\\lib\\spectre\\x64\\" } |
+  Select-Object -First 5
+```
 
 ### Visual Studio Installer の場所が分からない
 

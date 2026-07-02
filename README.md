@@ -112,6 +112,10 @@ If linking fails with `cannot open input file 'kernel32.lib'`, install the
 Windows 10/11 SDK from Visual Studio Installer and rerun from a new PowerShell
 or "Developer PowerShell for VS".
 
+If the build fails with `No spectre-mitigated libs were found`, add
+`MSVC v143 - VS 2022 C++ x64/x86 Spectre-mitigated libs` from Visual Studio
+Installer.
+
 If official Zed is not installed yet, install it first for the normal overlay
 flow. To only test source checkout and patching on a machine without Zed,
 provide the version and commit explicitly:

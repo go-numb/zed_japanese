@@ -219,6 +219,9 @@ function Assert-HostBuildDependencies {
     if (!(Test-LibAvailable "kernel32.lib")) {
         $missing += "Windows SDK libraries (kernel32.lib)"
     }
+    if (!(Test-SpectreLibsAvailable)) {
+        $missing += "MSVC Spectre-mitigated libs"
+    }
 
     if ($missing.Count -gt 0) {
         throw @"
@@ -236,6 +239,9 @@ You can install standalone CMake with:
 
 If kernel32.lib is missing, open Visual Studio Installer and add:
   Windows 10/11 SDK
+
+If Spectre-mitigated libs are missing, open Visual Studio Installer and add:
+  MSVC v143 - VS 2022 C++ x64/x86 Spectre-mitigated libs
 
 If CMake is already installed, open a new PowerShell or check:
   Get-Command cmake
@@ -255,6 +261,31 @@ function Test-LibAvailable {
 
     foreach ($path in $env:LIB -split ";") {
         if ($path -and (Test-Path (Join-Path $path $Name))) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Test-SpectreLibsAvailable {
+    $vcToolsRoot = "${env:ProgramFiles}\Microsoft Visual Studio\2022"
+    $roots = @(
+        "$vcToolsRoot\Community\VC\Tools\MSVC",
+        "$vcToolsRoot\BuildTools\VC\Tools\MSVC",
+        "$vcToolsRoot\Professional\VC\Tools\MSVC",
+        "$vcToolsRoot\Enterprise\VC\Tools\MSVC",
+        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC"
+    )
+
+    foreach ($root in $roots) {
+        if (!(Test-Path $root)) {
+            continue
+        }
+        $found = Get-ChildItem $root -Recurse -Filter "libcpmt.lib" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match "\\lib\\spectre\\x64\\" } |
+            Select-Object -First 1
+        if ($found) {
             return $true
         }
     }
