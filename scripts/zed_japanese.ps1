@@ -106,21 +106,25 @@ function Invoke-ZedJapaneseDocker {
     param(
         [string]$RepoRoot,
         [object]$Build,
-        [string[]]$Args
+        [string[]]$CommandArgs
     )
 
     $mount = "${RepoRoot}:/work"
-    docker run --rm `
-        -e "ZED_VERSION=$($Build.Version)" `
-        -e "ZED_COMMIT=$($Build.Commit)" `
-        -e "ZED_BIN=$($Build.Command)" `
-        -e "ZED_INSTALLED_EXE_PATH=$($Build.InstalledExe)" `
-        -e "ZED_VERSION_RAW=$($Build.Raw)" `
-        -v $mount `
-        $Image @Args
+    $dockerArgs = @(
+        "run",
+        "--rm",
+        "-e", "ZED_VERSION=$($Build.Version)",
+        "-e", "ZED_COMMIT=$($Build.Commit)",
+        "-e", "ZED_BIN=$($Build.Command)",
+        "-e", "ZED_INSTALLED_EXE_PATH=$($Build.InstalledExe)",
+        "-e", "ZED_VERSION_RAW=$($Build.Raw)",
+        "-v", $mount,
+        $Image
+    ) + $CommandArgs
 
+    docker @dockerArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "Docker command failed: $($Args -join ' ')"
+        throw "Docker command failed: $($CommandArgs -join ' ')"
     }
 }
 
@@ -219,13 +223,13 @@ Ensure-DockerImage -RepoRoot $repoRoot
 
 switch ($Command) {
     "status" {
-        Invoke-ZedJapaneseDocker -RepoRoot $repoRoot -Build $build -Args @("status")
+        Invoke-ZedJapaneseDocker -RepoRoot $repoRoot -Build $build -CommandArgs @("status")
     }
     "prepare" {
-        Invoke-ZedJapaneseDocker -RepoRoot $repoRoot -Build $build -Args @("update", "--no-build")
+        Invoke-ZedJapaneseDocker -RepoRoot $repoRoot -Build $build -CommandArgs @("update", "--no-build")
     }
     "update" {
-        Invoke-ZedJapaneseDocker -RepoRoot $repoRoot -Build $build -Args @("update", "--no-build")
+        Invoke-ZedJapaneseDocker -RepoRoot $repoRoot -Build $build -CommandArgs @("update", "--no-build")
         if (!$NoBuild) {
             Invoke-HostBuild -RepoRoot $repoRoot
         }
