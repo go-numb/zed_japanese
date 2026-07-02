@@ -84,6 +84,24 @@ def find_zed() -> str:
     raise CommandError("Zed binary was not found. Set ZED_BIN=/path/to/zed.")
 
 
+def detect_zed_from_env() -> ZedBuild | None:
+    version = os.environ.get("ZED_VERSION")
+    commit = os.environ.get("ZED_COMMIT")
+    if not version and not commit:
+        return None
+    if not version or not commit:
+        raise CommandError("set both ZED_VERSION and ZED_COMMIT, or neither")
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise CommandError("ZED_COMMIT must be a 40-character git commit SHA")
+    return ZedBuild(
+        version=version,
+        commit=commit,
+        binary=os.environ.get("ZED_BIN", "<env>"),
+        installed_exe_path=os.environ.get("ZED_INSTALLED_EXE_PATH"),
+        raw=os.environ.get("ZED_VERSION_RAW", f"Zed {version} {commit}"),
+    )
+
+
 def localize_windows_path(path: str) -> str:
     normalized = path
     if normalized.startswith("\\\\?\\"):
@@ -115,6 +133,10 @@ def parse_installed_exe_path(raw: str, binary: str) -> str | None:
 
 
 def detect_zed() -> ZedBuild:
+    env_build = detect_zed_from_env()
+    if env_build:
+        return env_build
+
     binary = find_zed()
     result = run([binary, "--version"], capture=True)
     raw = result.stdout.strip()

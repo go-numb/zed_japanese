@@ -23,8 +23,13 @@ stable UI string locations in Zed's source.
 
 ## Requirements
 
-- Git
-- Python 3.11 or later
+Choose one tooling path:
+
+- Python path: Git, Python 3.11 or later
+- Docker path on Windows: Docker Desktop and PowerShell
+
+Both paths still need:
+
 - Rust toolchain for building Zed
 - Platform dependencies required by Zed
 
@@ -55,6 +60,29 @@ same app identity, user data, extensions, history, settings, and launcher
 behavior. If anything goes wrong, reinstalling official Zed restores the normal
 build. Official updates may also replace the Japanese build; rerun
 `update --install` after updating Zed.
+
+Windows without Python:
+
+```powershell
+.\scripts\zed_japanese.ps1 -Command update
+```
+
+The PowerShell wrapper detects official Zed on the host, runs the Python
+sync/patch steps inside Docker, builds with host `cargo`, then overlays the
+official `Zed.exe`.
+
+If official Zed is not installed yet, install it first for the normal overlay
+flow. To only test source checkout and patching on a machine without Zed,
+provide the version and commit explicitly:
+
+```powershell
+.\scripts\zed_japanese.ps1 -Command prepare `
+  -ZedVersion 1.9.0 `
+  -ZedCommit ced90fc636c4ede05402befc38a63bae7fd741bd
+```
+
+That explicit mode can prepare/build, but official overlay install requires an
+installed official Zed path.
 
 Check current state:
 
@@ -150,6 +178,10 @@ When running from WSL against a Windows Zed install, the tool can still detect
 the Windows Zed version. Building and overlaying a Windows executable should be
 done from a Windows Rust environment; building from WSL produces a Linux build
 and is refused when the target is Windows `Zed.exe`.
+
+When Windows has Docker but not Python, use `scripts\zed_japanese.ps1`. Docker
+provides Python and Git for the patching steps; Windows still provides Cargo and
+the Windows build dependencies.
 
 ## Design Notes
 
