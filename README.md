@@ -54,6 +54,10 @@ Japanese install guide:
 
 - [docs/usage-ja.md](docs/usage-ja.md)
 
+The Japanese guide includes the known install/update blockers seen in practice:
+missing Docker image, Docker argument forwarding, missing CMake, missing Windows
+SDK libraries such as `kernel32.lib`, and long first-time clone/build steps.
+
 Normal update flow:
 
 ```sh

@@ -80,6 +80,23 @@ Get-Command cmake
 Test-Path "C:\Program Files\CMake\bin\cmake.exe"
 ```
 
+事前チェック:
+
+```powershell
+git --version
+docker --version
+rustc --version
+cargo --version
+Get-Command cmake
+where link
+Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Lib" -Recurse -Filter kernel32.lib -ErrorAction SilentlyContinue | Select-Object -First 1
+```
+
+`where link` は `link.exe` の場所を見るための確認。何も出ない場合は MSVC C++
+toolchain が不足している。
+
+`kernel32.lib` が出ない場合は Windows SDK libraries が不足している。
+
 ## 3. Repository を取得
 
 ```powershell
@@ -175,6 +192,18 @@ winget install -e --id ZedIndustries.Zed
 
 ## トラブルシュート
 
+ここでは、実際に詰まりやすい順に症状、原因、対処をまとめる。
+
+### まず `git pull`
+
+wrapper 側は初期実装から何度か修正している。Docker image、Docker 引数渡し、
+CMake 検出、Windows SDK 事前チェックで詰まる場合は、まず最新版へ更新する。
+
+```powershell
+cd path\to\zed_japanese
+git pull
+```
+
 ### `No such image: zed-japanese-tool:latest`
 
 古い wrapper では image 未作成時に止まることがあった。最新版へ更新する。
@@ -222,6 +251,28 @@ Test-Path "C:\Program Files\CMake\bin\cmake.exe"
 インストール後、通常 PowerShell でうまくいかない場合は
 `Developer PowerShell for VS 2022` から同じコマンドを実行する。
 
+### `Missing Windows build dependencies: CMake`
+
+CMake が未インストール、または PowerShell の PATH に入っていない。
+
+対処:
+
+```powershell
+winget install -e --id Kitware.CMake
+```
+
+インストール後、新しい PowerShell を開く。
+
+確認:
+
+```powershell
+Get-Command cmake
+Test-Path "C:\Program Files\CMake\bin\cmake.exe"
+```
+
+最新版 wrapper は一般的な CMake install path を自動で PATH に追加する。
+それでも失敗する場合は `git pull` してから再実行する。
+
 ### `LINK : fatal error LNK1181: cannot open input file 'kernel32.lib'`
 
 MSVC linker は見つかっているが、Windows SDK の library path が不足している。
@@ -243,6 +294,19 @@ Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Lib" -Recurse -Filter kern
 
 通常 PowerShell でだめな場合は `Developer PowerShell for VS 2022` から実行する。
 
+### Visual Studio Installer の場所が分からない
+
+スタートメニューで `Visual Studio Installer` と入力して開く。
+
+PowerShell から開く場合:
+
+```powershell
+Start-Process "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
+```
+
+開いたら `Visual Studio Build Tools 2022` または `Visual Studio Community 2022`
+の `Modify` を選ぶ。
+
 ### `Cloning into '/work/.cache/zed-upstream'...` で長い
 
 初回 clone は大きいので時間がかかる。別 PowerShell で確認:
@@ -254,7 +318,42 @@ Get-ChildItem .\.cache\zed-upstream -Force
 
 10 分以上まったく変化がなければ `Ctrl+C` で止めて再実行する。
 
+### `cargo build --release` が長い
+
+初回 build はかなり長い。`Compiling ...` が流れていれば正常。
+
+完了すると、通常は次のような表示に進む。
+
+```text
+installed: C:\Users\...\AppData\Local\Programs\Zed\Zed.exe
+backup: C:\Users\...\AppData\Local\Programs\Zed\.zed-japanese-backups\...
+```
+
+途中で失敗した場合は、最後の 30 から 50 行を確認する。
+
 ### Windows の `Zed.exe` に Linux build を置こうとして拒否される
 
 WSL で build すると Linux 向け成果物になる。Windows 版を作る場合は Windows 側
 PowerShell で実行する。
+
+## よくある更新パターン
+
+公式 Zed が更新された後、日本語化が戻った場合:
+
+```powershell
+cd path\to\zed_japanese
+git pull
+powershell -ExecutionPolicy Bypass -File .\scripts\zed_japanese.ps1 -Command update
+```
+
+翻訳 patch だけ確認したい場合:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\zed_japanese.ps1 -Command prepare
+```
+
+build 済み成果物だけ install したい場合:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\zed_japanese.ps1 -Command install
+```
