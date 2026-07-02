@@ -47,12 +47,14 @@ This runs:
 1. `sync`: follow the commit used by the installed stable Zed.
 2. `patch`: apply local Japanese translations.
 3. `build`: build patched Zed with `cargo build --release`.
-4. `install`: copy the built artifact to a side-by-side local install
-   directory.
+4. `install`: back up the official `Zed.exe`, then overlay it with the
+   Japanese build.
 
-The official Zed installation is not overwritten by default. The local Japanese
-build is installed separately so the official auto-updated Zed can continue to
-track stable releases. After official Zed updates, rerun `update --install`.
+The official Zed installation is the primary target by default. This keeps the
+same app identity, user data, extensions, history, settings, and launcher
+behavior. If anything goes wrong, reinstalling official Zed restores the normal
+build. Official updates may also replace the Japanese build; rerun
+`update --install` after updating Zed.
 
 Check current state:
 
@@ -90,16 +92,16 @@ Locate the built executable:
 python3 scripts/zed_japanese.py locate-artifact
 ```
 
-Install side-by-side:
+Install over the official Zed executable:
 
 ```sh
 python3 scripts/zed_japanese.py install
 ```
 
-Use a custom install directory:
+Install side-by-side instead:
 
 ```sh
-python3 scripts/zed_japanese.py install --dest ~/apps/zed-japanese
+python3 scripts/zed_japanese.py install --mode side-by-side --dest ~/apps/zed-japanese
 ```
 
 Run all steps except build:
@@ -124,22 +126,30 @@ python3 scripts/zed_japanese.py update --no-build
 ## Install and Update Policy
 
 - Treat the official Zed install as the source of truth for stable updates.
-- Never patch the official installed executable in place.
 - Build a Japanese variant from the exact source commit reported by
   `zed --version`.
-- Install the Japanese build side-by-side.
+- Overlay the official `Zed.exe` by default, after backing it up.
+- Keep the app identity unchanged so settings, extensions, history, and caches
+  continue to use Zed's normal user data directories.
+- Keep side-by-side install available for experiments.
 - Keep translation data small and reviewable in this repository.
 - Let upstream churn happen; missing strings are reported and can be translated
   incrementally.
 
-Default install locations:
+Default official overlay target:
+
+- The `Zed.exe` path reported by `zed --version`, for example
+  `%LOCALAPPDATA%\Programs\Zed\Zed.exe`.
+
+Default side-by-side install locations:
 
 - Windows Python: `%LOCALAPPDATA%\Programs\Zed Japanese`
 - Linux/macOS/WSL Python: `~/.local/zed-japanese`
 
 When running from WSL against a Windows Zed install, the tool can still detect
-the Windows Zed version. Building a Windows executable should be done from a
-Windows Rust environment; building from WSL produces a Linux build.
+the Windows Zed version. Building and overlaying a Windows executable should be
+done from a Windows Rust environment; building from WSL produces a Linux build
+and is refused when the target is Windows `Zed.exe`.
 
 ## Design Notes
 
@@ -148,4 +158,5 @@ Windows Rust environment; building from WSL produces a Linux build.
 - Missing strings should be reported, not treated as a hard failure.
 - Runtime hooks and DLL injection are avoided.
 - Upstream changes are expected; the patch step should remain idempotent.
-- Local installs are side-by-side and reversible.
+- Official overlays are backed up and reversible by reinstalling official Zed.
+- Side-by-side installs remain available for testing.

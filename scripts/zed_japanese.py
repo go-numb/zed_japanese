@@ -30,6 +30,7 @@ class ZedBuild:
     version: str
     commit: str
     binary: str
+    installed_exe_path: str | None
     raw: str
 
 
@@ -83,6 +84,36 @@ def find_zed() -> str:
     raise CommandError("Zed binary was not found. Set ZED_BIN=/path/to/zed.")
 
 
+def localize_windows_path(path: str) -> str:
+    normalized = path
+    if normalized.startswith("\\\\?\\"):
+        normalized = normalized[4:]
+    if is_wsl():
+        match = re.match(r"^([A-Za-z]):\\(.*)$", normalized)
+        if match:
+            drive = match.group(1).lower()
+            rest = match.group(2).replace("\\", "/")
+            return f"/mnt/{drive}/{rest}"
+    return normalized
+
+
+def parse_installed_exe_path(raw: str, binary: str) -> str | None:
+    # Windows builds print the resolved executable path after an en dash.
+    match = re.search(r"[–-]\s+(.+?Zed\.exe)\s*$", raw)
+    if match:
+        return localize_windows_path(match.group(1))
+
+    binary_path = Path(binary)
+    if binary_path.name.lower() == "zed.exe":
+        return str(binary_path)
+
+    sibling = binary_path.parent.parent / "Zed.exe"
+    if sibling.exists():
+        return str(sibling)
+
+    return None
+
+
 def detect_zed() -> ZedBuild:
     binary = find_zed()
     result = run([binary, "--version"], capture=True)
@@ -94,6 +125,7 @@ def detect_zed() -> ZedBuild:
         version=match.group(1),
         commit=match.group(2),
         binary=binary,
+        installed_exe_path=parse_installed_exe_path(raw, binary),
         raw=raw,
     )
 
@@ -283,25 +315,54 @@ def default_install_dir() -> Path:
     return Path.home() / ".local" / "zed-japanese"
 
 
-def install_artifact(artifact: Path, dest_dir: Path, build: ZedBuild) -> Path:
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / artifact.name
+def backup_path_for(dest: Path, build: ZedBuild) -> Path:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    backup_dir = dest.parent / ".zed-japanese-backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    return backup_dir / f"{dest.name}.{build.version}.{build.commit[:12]}.{stamp}.bak"
+
+
+def install_artifact(artifact: Path, dest: Path, build: ZedBuild, mode: str) -> Path:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    backup: Path | None = None
     if dest.exists():
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-        backup = dest.with_name(f"{dest.name}.{stamp}.bak")
-        dest.replace(backup)
+        backup = backup_path_for(dest, build)
+        shutil.copy2(dest, backup)
     shutil.copy2(artifact, dest)
     manifest = {
         "installed_at": datetime.now(timezone.utc).isoformat(),
+        "mode": mode,
         "source_version": build.version,
         "source_commit": build.commit,
         "artifact": str(artifact),
         "installed_path": str(dest),
-        "install_dir": str(dest_dir),
+        "backup_path": str(backup) if backup else None,
     }
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     INSTALL_MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return dest
+
+
+def install_side_by_side(artifact: Path, dest_dir: Path, build: ZedBuild) -> Path:
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / artifact.name
+    return install_artifact(artifact, dest, build, "side-by-side")
+
+
+def official_install_path(build: ZedBuild) -> Path:
+    if not build.installed_exe_path:
+        raise CommandError("could not determine the installed official Zed.exe path")
+    return Path(build.installed_exe_path)
+
+
+def validate_overlay_artifact(artifact: Path, dest: Path) -> None:
+    if artifact.resolve() == dest.resolve():
+        raise CommandError("artifact and destination are the same file")
+    if dest.suffix.lower() == ".exe" and artifact.suffix.lower() != ".exe":
+        raise CommandError(
+            "refusing to overlay a Windows Zed.exe with a non-.exe artifact. "
+            "Run the build from Windows, or provide a Windows artifact with --artifact."
+        )
 
 
 def cmd_locate_artifact(args: argparse.Namespace) -> None:
@@ -311,10 +372,15 @@ def cmd_locate_artifact(args: argparse.Namespace) -> None:
 def cmd_install(args: argparse.Namespace) -> None:
     build = detect_zed()
     artifact = Path(args.artifact).resolve() if args.artifact else locate_artifact(args.release)
-    dest_dir = Path(args.dest).expanduser().resolve() if args.dest else default_install_dir()
-    if is_wsl() and str(dest_dir).startswith("/mnt/c/Users/"):
-        print("warning: installing to Windows from WSL; close Zed before replacing files.", file=sys.stderr)
-    installed = install_artifact(artifact, dest_dir, build)
+    if args.mode == "official":
+        dest = official_install_path(build)
+        validate_overlay_artifact(artifact, dest)
+        if is_wsl() and str(dest).startswith("/mnt/c/"):
+            print("warning: overlaying Windows Zed from WSL; close Zed before replacing files.", file=sys.stderr)
+        installed = install_artifact(artifact, dest, build, "official")
+    else:
+        dest_dir = Path(args.dest).expanduser().resolve() if args.dest else default_install_dir()
+        installed = install_side_by_side(artifact, dest_dir, build)
     print(f"installed: {installed}")
 
 
@@ -349,6 +415,12 @@ def main() -> int:
     install_parser = subcommands.add_parser("install")
     install_parser.add_argument("--artifact")
     install_parser.add_argument("--dest")
+    install_parser.add_argument(
+        "--mode",
+        choices=["official", "side-by-side"],
+        default="official",
+        help="official overlays the installed Zed.exe with a backup; side-by-side copies elsewhere.",
+    )
     install_parser.add_argument("--debug", action="store_false", dest="release")
     install_parser.set_defaults(func=cmd_install, release=True)
 
@@ -358,6 +430,12 @@ def main() -> int:
     update_parser.add_argument("--install", action="store_true")
     update_parser.add_argument("--artifact")
     update_parser.add_argument("--dest")
+    update_parser.add_argument(
+        "--mode",
+        choices=["official", "side-by-side"],
+        default="official",
+        help="install target used with --install.",
+    )
     update_parser.set_defaults(func=cmd_update, release=True)
 
     args = parser.parse_args()
