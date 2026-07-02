@@ -36,6 +36,30 @@ Zed's official build docs:
 
 ## Workflow
 
+Normal update flow:
+
+```sh
+python3 scripts/zed_japanese.py update --install
+```
+
+This runs:
+
+1. `sync`: follow the commit used by the installed stable Zed.
+2. `patch`: apply local Japanese translations.
+3. `build`: build patched Zed with `cargo build --release`.
+4. `install`: copy the built artifact to a side-by-side local install
+   directory.
+
+The official Zed installation is not overwritten by default. The local Japanese
+build is installed separately so the official auto-updated Zed can continue to
+track stable releases. After official Zed updates, rerun `update --install`.
+
+Check current state:
+
+```sh
+python3 scripts/zed_japanese.py status
+```
+
 Detect the local Zed build:
 
 ```sh
@@ -60,17 +84,62 @@ Build:
 python3 scripts/zed_japanese.py build
 ```
 
+Locate the built executable:
+
+```sh
+python3 scripts/zed_japanese.py locate-artifact
+```
+
+Install side-by-side:
+
+```sh
+python3 scripts/zed_japanese.py install
+```
+
+Use a custom install directory:
+
+```sh
+python3 scripts/zed_japanese.py install --dest ~/apps/zed-japanese
+```
+
 Run all steps except build:
 
 ```sh
 python3 scripts/zed_japanese.py prepare
 ```
 
+Run sync and patch only:
+
+```sh
+python3 scripts/zed_japanese.py update --no-build
+```
+
 ## Directory Layout
 
 - `.cache/zed-upstream/`: cloned Zed source
+- `.cache/install-manifest.json`: last local install metadata
 - `translations/ja-JP.json`: Japanese UI translation entries
 - `scripts/zed_japanese.py`: update-aware local build helper
+
+## Install and Update Policy
+
+- Treat the official Zed install as the source of truth for stable updates.
+- Never patch the official installed executable in place.
+- Build a Japanese variant from the exact source commit reported by
+  `zed --version`.
+- Install the Japanese build side-by-side.
+- Keep translation data small and reviewable in this repository.
+- Let upstream churn happen; missing strings are reported and can be translated
+  incrementally.
+
+Default install locations:
+
+- Windows Python: `%LOCALAPPDATA%\Programs\Zed Japanese`
+- Linux/macOS/WSL Python: `~/.local/zed-japanese`
+
+When running from WSL against a Windows Zed install, the tool can still detect
+the Windows Zed version. Building a Windows executable should be done from a
+Windows Rust environment; building from WSL produces a Linux build.
 
 ## Design Notes
 
@@ -79,4 +148,4 @@ python3 scripts/zed_japanese.py prepare
 - Missing strings should be reported, not treated as a hard failure.
 - Runtime hooks and DLL injection are avoided.
 - Upstream changes are expected; the patch step should remain idempotent.
-
+- Local installs are side-by-side and reversible.

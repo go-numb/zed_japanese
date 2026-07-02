@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -16,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CACHE_DIR = ROOT / ".cache"
 ZED_SOURCE_DIR = CACHE_DIR / "zed-upstream"
 TRANSLATION_FILE = ROOT / "translations" / "ja-JP.json"
+INSTALL_MANIFEST = CACHE_DIR / "install-manifest.json"
 UPSTREAM_URL = "https://github.com/zed-industries/zed.git"
 
 
@@ -52,6 +54,13 @@ def run(
             details = f"\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
         raise CommandError(f"command failed: {' '.join(args)}{details}")
     return result
+
+
+def is_wsl() -> bool:
+    try:
+        return "microsoft" in Path("/proc/version").read_text(encoding="utf-8").lower()
+    except OSError:
+        return False
 
 
 def find_zed() -> str:
@@ -199,15 +208,124 @@ def cmd_patch(_: argparse.Namespace) -> None:
             print(f"  - {key}")
 
 
+def source_head() -> str | None:
+    if not (ZED_SOURCE_DIR / ".git").exists():
+        return None
+    result = run(["git", "rev-parse", "HEAD"], cwd=ZED_SOURCE_DIR, capture=True)
+    return result.stdout.strip()
+
+
+def source_dirty() -> bool:
+    if not (ZED_SOURCE_DIR / ".git").exists():
+        return False
+    result = run(["git", "status", "--porcelain"], cwd=ZED_SOURCE_DIR, capture=True)
+    return bool(result.stdout.strip())
+
+
+def cmd_status(_: argparse.Namespace) -> None:
+    build = detect_zed()
+    head = source_head()
+    status = {
+        "installed_zed": build.__dict__,
+        "source_dir": str(ZED_SOURCE_DIR),
+        "source_present": ZED_SOURCE_DIR.exists(),
+        "source_head": head,
+        "source_matches_installed": head == build.commit,
+        "source_dirty": source_dirty(),
+        "translation_file": str(TRANSLATION_FILE),
+        "translation_entries": len(load_translations()),
+        "install_manifest": str(INSTALL_MANIFEST),
+        "install_manifest_present": INSTALL_MANIFEST.exists(),
+        "running_under_wsl": is_wsl(),
+    }
+    print(json.dumps(status, ensure_ascii=False, indent=2))
+
+
 def cmd_prepare(args: argparse.Namespace) -> None:
     cmd_sync(args)
     cmd_patch(args)
 
 
-def cmd_build(_: argparse.Namespace) -> None:
+def cmd_build(args: argparse.Namespace) -> None:
     if not ZED_SOURCE_DIR.exists():
         raise CommandError("Zed source is missing. Run `prepare` first.")
-    run(["cargo", "run", "--release"], cwd=ZED_SOURCE_DIR)
+    cargo_args = ["cargo", "build"]
+    if args.release:
+        cargo_args.append("--release")
+    run(cargo_args, cwd=ZED_SOURCE_DIR)
+
+
+def artifact_candidates(release: bool = True) -> list[Path]:
+    profile = "release" if release else "debug"
+    target_dir = ZED_SOURCE_DIR / "target" / profile
+    names = [
+        "Zed.exe",
+        "zed.exe",
+        "cli.exe",
+        "zed",
+        "cli",
+    ]
+    return [target_dir / name for name in names]
+
+
+def locate_artifact(release: bool = True) -> Path:
+    for candidate in artifact_candidates(release):
+        if candidate.exists() and candidate.is_file():
+            return candidate
+    searched = "\n".join(f"  - {candidate}" for candidate in artifact_candidates(release))
+    raise CommandError(f"build artifact was not found. Searched:\n{searched}")
+
+
+def default_install_dir() -> Path:
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        return Path(local_app_data) / "Programs" / "Zed Japanese"
+    return Path.home() / ".local" / "zed-japanese"
+
+
+def install_artifact(artifact: Path, dest_dir: Path, build: ZedBuild) -> Path:
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / artifact.name
+    if dest.exists():
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        backup = dest.with_name(f"{dest.name}.{stamp}.bak")
+        dest.replace(backup)
+    shutil.copy2(artifact, dest)
+    manifest = {
+        "installed_at": datetime.now(timezone.utc).isoformat(),
+        "source_version": build.version,
+        "source_commit": build.commit,
+        "artifact": str(artifact),
+        "installed_path": str(dest),
+        "install_dir": str(dest_dir),
+    }
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    INSTALL_MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    return dest
+
+
+def cmd_locate_artifact(args: argparse.Namespace) -> None:
+    print(locate_artifact(args.release))
+
+
+def cmd_install(args: argparse.Namespace) -> None:
+    build = detect_zed()
+    artifact = Path(args.artifact).resolve() if args.artifact else locate_artifact(args.release)
+    dest_dir = Path(args.dest).expanduser().resolve() if args.dest else default_install_dir()
+    if is_wsl() and str(dest_dir).startswith("/mnt/c/Users/"):
+        print("warning: installing to Windows from WSL; close Zed before replacing files.", file=sys.stderr)
+    installed = install_artifact(artifact, dest_dir, build)
+    print(f"installed: {installed}")
+
+
+def cmd_update(args: argparse.Namespace) -> None:
+    cmd_sync(args)
+    cmd_patch(args)
+    if args.no_build:
+        return
+    cmd_build(args)
+    if args.install:
+        cmd_install(args)
 
 
 def main() -> int:
@@ -215,10 +333,32 @@ def main() -> int:
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     subcommands.add_parser("detect").set_defaults(func=cmd_detect)
+    subcommands.add_parser("status").set_defaults(func=cmd_status)
     subcommands.add_parser("sync").set_defaults(func=cmd_sync)
     subcommands.add_parser("patch").set_defaults(func=cmd_patch)
     subcommands.add_parser("prepare").set_defaults(func=cmd_prepare)
-    subcommands.add_parser("build").set_defaults(func=cmd_build)
+
+    build_parser = subcommands.add_parser("build")
+    build_parser.add_argument("--debug", action="store_false", dest="release")
+    build_parser.set_defaults(func=cmd_build, release=True)
+
+    artifact_parser = subcommands.add_parser("locate-artifact")
+    artifact_parser.add_argument("--debug", action="store_false", dest="release")
+    artifact_parser.set_defaults(func=cmd_locate_artifact, release=True)
+
+    install_parser = subcommands.add_parser("install")
+    install_parser.add_argument("--artifact")
+    install_parser.add_argument("--dest")
+    install_parser.add_argument("--debug", action="store_false", dest="release")
+    install_parser.set_defaults(func=cmd_install, release=True)
+
+    update_parser = subcommands.add_parser("update")
+    update_parser.add_argument("--debug", action="store_false", dest="release")
+    update_parser.add_argument("--no-build", action="store_true")
+    update_parser.add_argument("--install", action="store_true")
+    update_parser.add_argument("--artifact")
+    update_parser.add_argument("--dest")
+    update_parser.set_defaults(func=cmd_update, release=True)
 
     args = parser.parse_args()
     try:
@@ -231,4 +371,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
