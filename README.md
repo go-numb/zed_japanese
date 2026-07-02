@@ -42,6 +42,18 @@ Zed's official build docs:
 
 ## Workflow
 
+Windows 11 with Docker Desktop and no Python:
+
+```powershell
+git clone https://github.com/go-numb/zed_japanese.git
+cd zed_japanese
+powershell -ExecutionPolicy Bypass -File .\scripts\zed_japanese.ps1 -Command update
+```
+
+Japanese install guide:
+
+- [docs/usage-ja.md](docs/usage-ja.md)
+
 Normal update flow:
 
 ```sh
@@ -76,6 +88,14 @@ The Windows build still requires Visual Studio or Visual Studio Build Tools with
 the C++ toolchain. VS Code is a different product and is not sufficient. The
 wrapper tries to load `VsDevCmd.bat` automatically when Build Tools are
 installed; if that fails, run it from "Developer PowerShell for VS".
+
+Required Visual Studio components:
+
+- Desktop development with C++
+- MSVC x64/x86 build tools
+- MSVC Spectre-mitigated libs
+- Windows 10/11 SDK
+- CMake
 
 If official Zed is not installed yet, install it first for the normal overlay
 flow. To only test source checkout and patching on a machine without Zed,
