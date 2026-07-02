@@ -101,6 +101,7 @@ If only CMake is missing:
 
 ```powershell
 winget install -e --id Kitware.CMake
+Get-Command cmake
 ```
 
 If official Zed is not installed yet, install it first for the normal overlay

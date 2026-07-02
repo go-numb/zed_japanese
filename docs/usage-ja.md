@@ -70,6 +70,13 @@ winget install -e --id Kitware.CMake
 
 インストール後、新しい PowerShell を開き直してから再実行する。
 
+確認:
+
+```powershell
+Get-Command cmake
+Test-Path "C:\Program Files\CMake\bin\cmake.exe"
+```
+
 ## 3. Repository を取得
 
 ```powershell
@@ -199,6 +206,14 @@ CMake だけ不足している場合:
 
 ```powershell
 winget install -e --id Kitware.CMake
+```
+
+インストール済みなのに見つからない場合は、新しい PowerShell を開き直す。
+それでもだめなら確認:
+
+```powershell
+Get-Command cmake
+Test-Path "C:\Program Files\CMake\bin\cmake.exe"
 ```
 
 インストール後、通常 PowerShell でうまくいかない場合は

@@ -170,6 +170,18 @@ function Import-VsBundledCMake {
         return
     }
 
+    $cmakeCandidates = @(
+        "$env:ProgramFiles\CMake\bin",
+        "${env:ProgramFiles(x86)}\CMake\bin",
+        "$env:LOCALAPPDATA\Programs\CMake\bin"
+    )
+    foreach ($candidate in $cmakeCandidates) {
+        if (Test-Path (Join-Path $candidate "cmake.exe")) {
+            $env:PATH = "$candidate;$env:PATH"
+            return
+        }
+    }
+
     $vswhereCandidates = @(
         "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe",
         "$env:ProgramFiles\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -218,6 +230,10 @@ Install Visual Studio Build Tools or Visual Studio with:
 
 You can install standalone CMake with:
   winget install -e --id Kitware.CMake
+
+If CMake is already installed, open a new PowerShell or check:
+  Get-Command cmake
+  Test-Path "C:\Program Files\CMake\bin\cmake.exe"
 
 VS Code is not sufficient. After installing, rerun this command from PowerShell.
 "@
